@@ -1,2 +1,0 @@
-[tool.vercel]
-entrypoint = "gemini-code-1781495796185:app"
