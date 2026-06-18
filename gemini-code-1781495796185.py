@@ -294,6 +294,12 @@ HTML_CONTENT = """
     </style>
 </head>
 <body>
+    <div style="position: absolute; top: 20px; right: 20px;">
+        <a href="https://github.com/tilakpopat4/tpf_tools/archive/refs/heads/main.zip" class="copy-btn" style="text-decoration: none; background: #0f172a; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download Source Code
+        </a>
+    </div>
 
     <div class="branding-header">
         <img class="branding-logo" src="/public/logo.png?v=3" alt="TPF Logo">
@@ -303,7 +309,10 @@ HTML_CONTENT = """
 
     <div class="api-key-container">
         <label for="api-key-input">Enter your Gemini API Key:</label>
-        <input type="password" id="api-key-input" placeholder="AIzaSy...">
+        <div style="display: flex; gap: 10px;">
+            <input type="password" id="api-key-input" placeholder="AIzaSy...">
+            <button class="copy-btn" style="background: #ef4444;" onclick="document.getElementById('api-key-input').value = ''; alert('API Key removed from browser cache.');">Log Out</button>
+        </div>
         <div class="api-key-help">Don't have one? Get it from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</div>
     </div>
 
