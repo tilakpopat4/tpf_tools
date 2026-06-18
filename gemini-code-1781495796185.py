@@ -32,21 +32,21 @@ HTML_CONTENT = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TPF Tools - Film Score Prompt Generator</title>
-    <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon-192.png">
+    <link rel="icon" type="image/x-icon" href="/public/favicon.ico?v=2">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.png?v=2">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon-192.png?v=2">
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --accent: #10b981;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --primary: #4f46e5;
+            --primary-hover: #3730a3;
+            --accent: #059669;
+            --text-main: #0f172a;
+            --text-muted: #475569;
         }
         body { 
             font-family: 'Outfit', -apple-system, sans-serif; 
@@ -55,8 +55,8 @@ HTML_CONTENT = """
             padding: 40px 20px; 
             background-color: var(--bg-color); 
             color: var(--text-main); 
-            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 400px),
-                              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.08), transparent 400px);
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 400px),
+                              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.03), transparent 400px);
             background-attachment: fixed;
         }
         
@@ -69,17 +69,15 @@ HTML_CONTENT = """
             margin-bottom: 40px;
         }
         .branding-logo {
-            height: 70px;
+            height: 140px;
             object-fit: contain;
             margin-bottom: 15px;
-            filter: drop-shadow(0px 4px 10px rgba(255,255,255,0.05));
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.05));
         }
         .branding-title {
             font-size: 2.4em;
             font-weight: 800;
-            background: linear-gradient(135deg, #f8fafc 30%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-main);
             margin: 0;
             letter-spacing: -0.03em;
         }
@@ -93,7 +91,7 @@ HTML_CONTENT = """
 
         /* Drag & Drop Area */
         #drop-zone { 
-            border: 2px dashed rgba(99, 102, 241, 0.4); 
+            border: 2px dashed rgba(99, 102, 241, 0.3); 
             border-radius: 16px; 
             padding: 50px 30px; 
             text-align: center; 
@@ -102,15 +100,15 @@ HTML_CONTENT = """
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
             backdrop-filter: blur(8px);
             border-color: var(--primary);
-            box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
         }
         #drop-zone:hover { 
             border-color: var(--accent);
-            box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.15);
             transform: translateY(-2px);
         }
         #drop-zone.hover { 
-            background: rgba(99, 102, 241, 0.15); 
+            background: rgba(99, 102, 241, 0.05); 
             border-color: var(--accent);
         }
         .drop-icon {
@@ -147,8 +145,7 @@ HTML_CONTENT = """
             border: 1px solid var(--border-color); 
             padding: 24px; 
             margin-bottom: 24px; 
-            box-shadow: 0 4px 20px -5px rgba(0,0,0,0.15); 
-            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px -5px rgba(15, 23, 42, 0.05); 
         }
         .scene-header { 
             font-size: 1.3em; 
@@ -176,7 +173,7 @@ HTML_CONTENT = """
             letter-spacing: 0.05em;
             margin-bottom: 6px;
         }
-        ul { padding-left: 20px; margin: 0 0 20px 0; color: #cbd5e1; line-height: 1.6; }
+        ul { padding-left: 20px; margin: 0 0 20px 0; color: #334155; line-height: 1.6; }
         
         /* Suno Prompts Panel */
         .suno-title {
@@ -191,7 +188,7 @@ HTML_CONTENT = """
             gap: 6px;
         }
         .suno-box { 
-            background: rgba(15, 23, 42, 0.6); 
+            background: #f8fafc; 
             padding: 14px 18px; 
             border-radius: 10px; 
             border: 1px solid var(--border-color); 
@@ -203,12 +200,12 @@ HTML_CONTENT = """
             transition: border-color 0.2s;
         }
         .suno-box:hover {
-            border-color: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.4);
         }
         .suno-text { 
             font-family: monospace; 
             font-size: 0.95em; 
-            color: #34d399; 
+            color: #047857; 
             word-break: break-all; 
             margin-right: 15px; 
         }
@@ -256,7 +253,7 @@ HTML_CONTENT = """
 <body>
 
     <div class="branding-header">
-        <img class="branding-logo" src="/public/logo.png" alt="TPF Logo">
+        <img class="branding-logo" src="/public/logo.png?v=3" alt="TPF Logo">
         <h1 class="branding-title">Film Score Prompt Generator</h1>
         <p class="subtitle">Upload script PDF to segment scenes and render professional Suno AI prompts</p>
     </div>
