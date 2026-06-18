@@ -1,10 +1,14 @@
 import os
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from google import genai
 from pydantic import BaseModel, Field
 
 app = FastAPI()
+
+# Mount the static directory
+app.mount("/public", StaticFiles(directory="public"), name="public")
 
 # 1. Define the desired Gemini output structure
 class ScenePrompt(BaseModel):
@@ -25,40 +29,248 @@ HTML_CONTENT = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Film Score Prompt Generator</title>
+    <title>TPF Tools - Film Score Prompt Generator</title>
+    <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon-192.png">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f9f9fb; color: #333; }
-        h1 { text-align: center; color: #111; margin-bottom: 5px; }
-        p.subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-        #drop-zone { border: 2px dashed #4f46e5; border-radius: 12px; padding: 40px; text-align: center; background: #fff; cursor: pointer; transition: background 0.2s; }
-        #drop-zone.hover { background: #e0e7ff; }
-        #results-container { margin-top: 30px; display: none; }
-        .loading { display: none; text-align: center; font-weight: bold; color: #4f46e5; margin-top: 20px; }
-        .scene-card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .scene-header { font-size: 1.25em; font-weight: bold; color: #111827; margin-bottom: 10px; border-bottom: 2px solid #f3f4f6; padding-bottom: 8px; display: flex; justify-content: space-between; }
-        .scene-meta { display: flex; gap: 20px; margin-bottom: 15px; font-size: 0.95em; }
-        .scene-meta strong { color: #374151; }
-        ul { padding-left: 20px; margin: 5px 0 15px 0; }
-        .suno-box { background: #f3f4f6; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; position: relative; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .suno-text { font-family: monospace; font-size: 1em; color: #111827; word-break: break-all; margin-right: 15px; }
-        .copy-btn { background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500; white-space: nowrap; }
-        .copy-btn:hover { background: #4338ca; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body { 
+            font-family: 'Outfit', -apple-system, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 40px 20px; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 400px),
+                              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.08), transparent 400px);
+            background-attachment: fixed;
+        }
+        
+        /* Branding Header */
+        .branding-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .branding-logo {
+            height: 70px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            filter: drop-shadow(0px 4px 10px rgba(255,255,255,0.05));
+        }
+        .branding-title {
+            font-size: 2.4em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f8fafc 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            letter-spacing: -0.03em;
+        }
+        .subtitle { 
+            color: var(--text-muted); 
+            font-size: 1.1em;
+            margin-top: 6px;
+            margin-bottom: 0;
+            font-weight: 400;
+        }
+
+        /* Drag & Drop Area */
+        #drop-zone { 
+            border: 2px dashed rgba(99, 102, 241, 0.4); 
+            border-radius: 16px; 
+            padding: 50px 30px; 
+            text-align: center; 
+            background: var(--card-bg); 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            backdrop-filter: blur(8px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.3);
+        }
+        #drop-zone:hover { 
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2);
+            transform: translateY(-2px);
+        }
+        #drop-zone.hover { 
+            background: rgba(99, 102, 241, 0.15); 
+            border-color: var(--accent);
+        }
+        .drop-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .drop-text {
+            font-weight: 500;
+            font-size: 1.05em;
+            color: var(--text-main);
+        }
+
+        #results-container { margin-top: 45px; display: none; }
+        .loading { 
+            display: none; 
+            text-align: center; 
+            font-weight: 600; 
+            color: var(--primary); 
+            margin-top: 30px; 
+            font-size: 1.1em;
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        /* Scene Breakdown Cards */
+        .scene-card { 
+            background: var(--card-bg); 
+            border-radius: 16px; 
+            border: 1px solid var(--border-color); 
+            padding: 24px; 
+            margin-bottom: 24px; 
+            box-shadow: 0 4px 20px -5px rgba(0,0,0,0.15); 
+            backdrop-filter: blur(12px);
+        }
+        .scene-header { 
+            font-size: 1.3em; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 12px; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 10px; 
+            display: flex; 
+            justify-content: space-between; 
+        }
+        .scene-meta { 
+            display: flex; 
+            gap: 25px; 
+            margin-bottom: 18px; 
+            font-size: 0.95em; 
+        }
+        .scene-meta strong { color: var(--text-muted); }
+        .scene-meta span { color: var(--text-main); font-weight: 500; }
+        .instruments-title {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        ul { padding-left: 20px; margin: 0 0 20px 0; color: #cbd5e1; line-height: 1.6; }
+        
+        /* Suno Prompts Panel */
+        .suno-title {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .suno-box { 
+            background: rgba(15, 23, 42, 0.6); 
+            padding: 14px 18px; 
+            border-radius: 10px; 
+            border: 1px solid var(--border-color); 
+            position: relative; 
+            margin-top: 6px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            transition: border-color 0.2s;
+        }
+        .suno-box:hover {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .suno-text { 
+            font-family: monospace; 
+            font-size: 0.95em; 
+            color: #34d399; 
+            word-break: break-all; 
+            margin-right: 15px; 
+        }
+        
+        /* Buttons */
+        .copy-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.85em; 
+            font-weight: 600; 
+            white-space: nowrap; 
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { 
+            background: var(--primary-hover); 
+            transform: translateY(-1px);
+        }
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+        
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        .header-actions h2 {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin: 0;
+        }
+        .download-btn {
+            background: var(--accent);
+        }
+        .download-btn:hover {
+            background: #059669;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🎬 Film Score Prompt Generator</h1>
-    <p class="subtitle">Drag & drop your script PDF to break down scenes & generate Suno AI prompts</p>
+    <div class="branding-header">
+        <img class="branding-logo" src="/public/logo.png" alt="TPF Logo">
+        <h1 class="branding-title">Film Score Prompt Generator</h1>
+        <p class="subtitle">Upload script PDF to segment scenes and render professional Suno AI prompts</p>
+    </div>
 
-    <div id="drop-zone">Drag & Drop your script PDF here, or click to select</div>
+    <div id="drop-zone">
+        <span class="drop-icon">🎬</span>
+        <div class="drop-text">Drag & Drop script PDF here, or click to browse</div>
+    </div>
     <input type="file" id="file-input" accept=".pdf" style="display: none;">
 
-    <div id="loading" class="loading">Analyzing script scenes with Gemini... Please wait...</div>
+    <div id="loading" class="loading">Generating score breakdowns with Gemini... Please wait...</div>
 
     <div id="results-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin: 0;">🎵 Generated Musical Parameters per Scene</h2>
-            <button id="download-pdf-btn" class="copy-btn" style="background: #10b981; font-size: 1em; padding: 10px 20px;">Download Analysis PDF</button>
+        <div class="header-actions">
+            <h2>🎵 Segmented Scenes</h2>
+            <button id="download-pdf-btn" class="copy-btn download-btn">Download Report PDF</button>
         </div>
         <div id="scenes-list"></div>
     </div>
@@ -290,12 +502,12 @@ HTML_CONTENT = """
                             <span>Scene ${scene.scene_number}: ${scene.scene_title}</span>
                         </div>
                         <div class="scene-meta">
-                            <div><strong>BPM:</strong> ${scene.bpm}</div>
-                            <div><strong>Mood:</strong> ${scene.mood}</div>
+                            <div><strong>BPM:</strong> <span>${scene.bpm}</span></div>
+                            <div><strong>Mood:</strong> <span>${scene.mood}</span></div>
                         </div>
-                        <div><strong>Suggested Instrumentation:</strong></div>
+                        <div class="instruments-title">Suggested Instrumentation</div>
                         <ul>${instListHtml}</ul>
-                        <div><strong>🔥 Suno AI Prompt:</strong></div>
+                        <div class="suno-title">🔥 Suno AI Prompt</div>
                         <div class="suno-box">
                             <span id="${textId}" class="suno-text">${scene.suno_prompt}</span>
                             <button class="copy-btn" onclick="copySunoPrompt(this, '${textId}')">Copy Prompt</button>

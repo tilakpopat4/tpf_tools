@@ -4,11 +4,15 @@ import base64
 import io
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
 app = FastAPI()
+
+# Mount the static directory
+app.mount("/public", StaticFiles(directory="public"), name="public")
 
 # 1. Define the desired Gemini output structure for Storyboarding
 class StoryboardFrame(BaseModel):
@@ -32,48 +36,256 @@ HTML_CONTENT = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Film Storyboard Maker</title>
+    <title>TPF Tools - AI Film Storyboard Maker</title>
+    <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon-192.png">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background-color: #f8fafc; color: #1e293b; }
-        h1 { text-align: center; color: #0f172a; margin-bottom: 5px; font-weight: 800; font-size: 2.2em; }
-        p.subtitle { text-align: center; color: #64748b; margin-bottom: 35px; font-size: 1.1em; }
-        #drop-zone { border: 2px dashed #3b82f6; border-radius: 16px; padding: 50px 30px; text-align: center; background: #fff; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        #drop-zone:hover { border-color: #2563eb; background: #f0f7ff; }
-        #drop-zone.hover { background: #e0f2fe; border-color: #0284c7; }
-        #results-container { margin-top: 40px; display: none; }
-        .loading { display: none; text-align: center; font-weight: bold; color: #2563eb; margin-top: 20px; font-size: 1.1em; }
-        .frame-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body { 
+            font-family: 'Outfit', -apple-system, sans-serif; 
+            max-width: 1100px; 
+            margin: 0 auto; 
+            padding: 40px 20px; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            background-image: radial-gradient(circle at top left, rgba(99, 102, 241, 0.12), transparent 450px),
+                              radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.08), transparent 450px);
+            background-attachment: fixed;
+        }
+        
+        /* Branding Header */
+        .branding-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .branding-logo {
+            height: 70px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            filter: drop-shadow(0px 4px 10px rgba(255,255,255,0.05));
+        }
+        .branding-title {
+            font-size: 2.4em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f8fafc 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            letter-spacing: -0.03em;
+        }
+        .subtitle { 
+            color: var(--text-muted); 
+            font-size: 1.1em;
+            margin-top: 6px;
+            margin-bottom: 0;
+            font-weight: 400;
+        }
+
+        /* Drag & Drop Area */
+        #drop-zone { 
+            border: 2px dashed rgba(99, 102, 241, 0.4); 
+            border-radius: 16px; 
+            padding: 50px 30px; 
+            text-align: center; 
+            background: var(--card-bg); 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            backdrop-filter: blur(8px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.3);
+        }
+        #drop-zone:hover { 
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.2);
+            transform: translateY(-2px);
+        }
+        #drop-zone.hover { 
+            background: rgba(99, 102, 241, 0.15); 
+            border-color: var(--accent);
+        }
+        .drop-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .drop-text {
+            font-weight: 500;
+            font-size: 1.05em;
+            color: var(--text-main);
+        }
+
+        #results-container { margin-top: 45px; display: none; }
+        .loading { 
+            display: none; 
+            text-align: center; 
+            font-weight: 600; 
+            color: var(--primary); 
+            margin-top: 30px; 
+            font-size: 1.1em;
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        /* Frame Cards */
+        .frame-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 30px; 
+            margin-top: 20px; 
+        }
         @media(max-width: 768px) {
             .frame-grid { grid-template-columns: 1fr; }
         }
-        .frame-card { background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; }
-        .frame-image-container { width: 100%; height: 250px; background: #f1f5f9; border-radius: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #e2e8f0; }
+        .frame-card { 
+            background: var(--card-bg); 
+            border-radius: 16px; 
+            border: 1px solid var(--border-color); 
+            padding: 24px; 
+            box-shadow: 0 4px 20px -5px rgba(0,0,0,0.15); 
+            backdrop-filter: blur(12px);
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+        }
+        .frame-image-container { 
+            width: 100%; 
+            height: 250px; 
+            background: rgba(15, 23, 42, 0.4); 
+            border-radius: 12px; 
+            margin-bottom: 18px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+            border: 1px solid var(--border-color); 
+        }
         .frame-image { width: 100%; height: 100%; object-fit: cover; }
-        .frame-badge { background: #eff6ff; color: #1d4ed8; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.85em; width: fit-content; margin-bottom: 12px; }
-        .frame-title { font-size: 1.15em; font-weight: 700; color: #0f172a; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
-        .meta-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; font-size: 0.95em; }
+        .frame-badge { 
+            background: rgba(99, 102, 241, 0.15); 
+            color: #818cf8; 
+            padding: 4px 12px; 
+            border-radius: 9999px; 
+            font-weight: 700; 
+            font-size: 0.85em; 
+            width: fit-content; 
+            margin-bottom: 12px; 
+        }
+        .frame-title { 
+            font-size: 1.25em; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 15px; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 8px; 
+        }
+        .meta-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            margin-bottom: 15px; 
+            font-size: 0.95em; 
+        }
         .meta-item { display: flex; gap: 8px; }
-        .meta-label { font-weight: 700; color: #64748b; width: 110px; flex-shrink: 0; }
-        .meta-val { color: #334155; }
-        .action-text { font-size: 0.95em; line-height: 1.5; color: #334155; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9; margin-bottom: 15px; }
-        .action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .btn-primary { background: #0f172a; color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-size: 1em; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
-        .btn-primary:hover { background: #1e293b; }
+        .meta-label { font-weight: 700; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+        .meta-val { color: var(--text-main); font-weight: 500; }
+        .action-text { 
+            font-size: 0.95em; 
+            line-height: 1.5; 
+            color: #cbd5e1; 
+            background: rgba(15, 23, 42, 0.4); 
+            padding: 14px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            margin-bottom: 15px; 
+        }
+        
+        /* Buttons */
+        .copy-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.85em; 
+            font-weight: 600; 
+            white-space: nowrap; 
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { 
+            background: var(--primary-hover); 
+            transform: translateY(-1px);
+        }
+        
+        .action-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 25px; 
+        }
+        .action-header h2 {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin: 0;
+        }
+        .btn-primary { 
+            background: var(--accent); 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-size: 1em; 
+            font-weight: 600; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.2s; 
+        }
+        .btn-primary:hover { 
+            background: #059669; 
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
 
-    <h1>🎬 AI Film Storyboard Maker</h1>
-    <p class="subtitle">Upload script PDF to generate visual storyboards & PDF report</p>
+    <div class="branding-header">
+        <img class="branding-logo" src="/public/logo.png" alt="TPF Logo">
+        <h1 class="branding-title">AI Film Storyboard Maker</h1>
+        <p class="subtitle">Upload script PDF to generate visual shot-by-shot storyboards & PDF reports</p>
+    </div>
 
-    <div id="drop-zone">Drag & Drop your script PDF here, or click to select</div>
+    <div id="drop-zone">
+        <span class="drop-icon">🎬</span>
+        <div class="drop-text">Drag & Drop script PDF here, or click to browse</div>
+    </div>
     <input type="file" id="file-input" accept=".pdf" style="display: none;">
 
-    <div id="loading" class="loading">Analyzing script and drawing storyboard frames... This takes a minute...</div>
+    <div id="loading" class="loading">Analyzing script and rendering storyboard frames... Please wait...</div>
 
     <div id="results-container">
         <div class="action-header">
-            <h2 style="margin: 0; font-weight: 800; font-size: 1.5em; color: #0f172a;">Visual Storyboard</h2>
+            <h2>Visual Storyboard</h2>
             <button id="download-pdf-btn" class="btn-primary">Download Storyboard PDF</button>
         </div>
         <div id="frames-grid" class="frame-grid"></div>
