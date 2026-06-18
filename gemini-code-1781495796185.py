@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
@@ -87,6 +87,49 @@ HTML_CONTENT = """
             margin-top: 6px;
             margin-bottom: 0;
             font-weight: 400;
+        }
+
+        /* API Key Input */
+        .api-key-container {
+            margin-bottom: 25px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .api-key-container label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+        #api-key-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: monospace;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        #api-key-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .api-key-help {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+        .api-key-help a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .api-key-help a:hover {
+            text-decoration: underline;
         }
 
         /* Drag & Drop Area */
@@ -256,6 +299,12 @@ HTML_CONTENT = """
         <img class="branding-logo" src="/public/logo.png?v=3" alt="TPF Logo">
         <h1 class="branding-title">Film Score Prompt Generator</h1>
         <p class="subtitle">Upload script PDF to segment scenes and render professional Suno AI prompts</p>
+    </div>
+
+    <div class="api-key-container">
+        <label for="api-key-input">Enter your Gemini API Key:</label>
+        <input type="password" id="api-key-input" placeholder="AIzaSy...">
+        <div class="api-key-help">Don't have one? Get it from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</div>
     </div>
 
     <div id="drop-zone">
@@ -460,6 +509,12 @@ HTML_CONTENT = """
         async function handleFile(file) {
             if (!file) return;
             
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if (!apiKey) {
+                alert("Please enter your Gemini API Key first.");
+                return;
+            }
+            
             loading.style.display = 'block';
             resultsContainer.style.display = 'none';
             scenesList.innerHTML = '';
@@ -467,6 +522,7 @@ HTML_CONTENT = """
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('api_key', apiKey);
 
             try {
                 const response = await fetch('/process-pdf', {
@@ -533,7 +589,7 @@ def read_root():
     return HTML_CONTENT
 
 @app.post("/process-pdf")
-async def process_pdf(file: UploadFile = File(...)):
+async def process_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
     """Receives the PDF from the browser, passes it to Gemini, and returns JSON."""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
@@ -544,8 +600,8 @@ async def process_pdf(file: UploadFile = File(...)):
         f.write(await file.read())
 
     try:
-        # Initialize Gemini Client (reads GEMINI_API_KEY from environment)
-        client = genai.Client()
+        # Initialize Gemini Client with user-provided API key
+        client = genai.Client(api_key=api_key)
 
         # Upload to Gemini's File API
         uploaded_file = client.files.upload(file=temp_path)
