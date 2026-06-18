@@ -263,7 +263,10 @@ HTML_CONTENT = """
                     body: formData
                 });
 
-                if (!response.ok) throw new Error('Failed to process PDF');
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(errText);
+                }
 
                 const data = await response.json();
                 
@@ -364,8 +367,9 @@ async def process_pdf(file: UploadFile = File(...)):
 
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        error_details = traceback.format_exc()
+        print(error_details)
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}\n\nTraceback:\n{error_details}")
         
     finally:
         # Cleanup temporary local file
