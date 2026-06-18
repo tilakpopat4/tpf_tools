@@ -11,8 +11,10 @@ from pydantic import BaseModel, Field
 
 app = FastAPI()
 
-# Mount the static directory
-app.mount("/public", StaticFiles(directory="public"), name="public")
+# Mount the static directory (using absolute path for Vercel serverless compatibility)
+static_path = os.path.join(os.path.dirname(__file__), "public")
+if os.path.exists(static_path):
+    app.mount("/public", StaticFiles(directory=static_path), name="public")
 
 # 1. Define the desired Gemini output structure for Storyboarding
 class StoryboardFrame(BaseModel):
