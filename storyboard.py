@@ -369,7 +369,8 @@ async def generate_storyboard(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
-    temp_path = f"temp_sb_{file.filename}"
+    # Save incoming file temporarily in /tmp directory (Vercel allows writing only to /tmp)
+    temp_path = f"/tmp/temp_sb_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 

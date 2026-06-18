@@ -324,8 +324,8 @@ async def process_pdf(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
-    # Save incoming file temporarily on your local system
-    temp_path = f"temp_{file.filename}"
+    # Save incoming file temporarily in /tmp directory (Vercel allows writing only to /tmp)
+    temp_path = f"/tmp/temp_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(await file.read())
 
